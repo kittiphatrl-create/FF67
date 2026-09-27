@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>First Fantasy 67 — Turn-Based Web Game & Player Control</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Retro & Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <!-- Main Game Canvas (Exploration & Battle rendering) -->
+  <div id="game-wrapper">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <!-- Screen Flash for Critical / 2x Weakness strikes -->
+  <div id="screen-flash" class="screen-flash"></div>
+
+  <!-- UI Overlay -->
+  <div class="ui-layer">
+    <!-- Top Global Header -->
+    <header class="game-header">
+      <div class="title-badge">
+        <span class="badge-icon">🗡️</span>
+        <div>
+          <h1 class="game-title">First Fantasy 67</h1>
+          <p class="game-subtitle">TACTICAL TURN-BASED RPG &amp; EXPLORATION</p>
+        </div>
+      </div>
+
+      <!-- Terrain Mode Switcher (Isometric Nature Pack vs Harvest 2D) -->
+      <div class="terrain-selector-wrapper" id="terrain-selector-hud"
+        title="เลือกรูปแบบพื้นผิวแผนที่ (Isometric Nature vs Harvest 2D)">
+        <button class="terrain-hud-btn active" data-terrain="isometric">📐 Isometric 2.5D</button>
+        <button class="terrain-hud-btn" data-terrain="harvest">🌿 Harvest 2D</button>
+      </div>
+
+      <!-- Mode Switcher & Global Stats -->
+      <div class="header-right">
+        <button id="btn-main-menu-trigger" class="mode-toggle-btn menu-btn"
+          title="เปิดหน้าต่างเมนูหลัก (จัดทีม / Status / Jobs / Inventory / Equipment) [M]">
+          <img src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Scroll/64px/Scroll 1st 64px.png"
+            class="btn-hud-icon" alt="Menu">
+          <span>MENU [M]</span>
+        </button>
+
+        <button id="btn-return-title" class="mode-toggle-btn title-btn-hud" title="กลับสู่หน้าหลัก / Title Screen">
+          <img
+            src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Main/House/64px/Blue House 1st 64px.png"
+            class="btn-hud-icon" alt="Title">
+          <span>TITLE [หน้าหลัก]</span>
+        </button>
+        <div class="stat-pill sound-btn" id="sound-toggle" title="เปิด/ปิดเสียง">
+          <span id="sound-icon">🔊</span>
+          <span id="sound-text">SOUND ON</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= EXPLORATION HUD (Active in Field) ================= -->
+    <div id="exploration-hud" class="hud-group">
+      <!-- Dungeon Floor & Quest Banner (B1F to B10F Progression) -->
+      <div class="floor-quest-banner" id="floor-quest-banner">
+        <div class="floor-indicator">
+          <span class="floor-badge-icon" id="floor-badge-icon">🏰</span>
+          <div class="floor-badge-texts">
+            <div class="floor-badge-title" id="floor-badge-title">FLOOR B1F: CELL OF AWAKENING</div>
+            <div class="floor-badge-sub" id="floor-badge-sub">ห้องขังแห่งการตื่นรู้ (Cloud Stif Solo)</div>
+          </div>
+        </div>
+        <div class="quest-indicator" id="quest-indicator">
+          <span class="quest-icon">🎯</span>
+          <span class="quest-text" id="quest-text">ภารกิจ: สังหารมอนสเตอร์ &amp; หาบันไดลงสู่ชั้น B2F</span>
+        </div>
+      </div>
+      <!-- Real-time World Radar / Minimap (Clean & Unobstructed) -->
+      <div class="minimap-card" id="minimap-wrapper">
+        <div class="minimap-header">
+          <span class="minimap-title">🗺️ RADAR / MINIMAP</span>
+          <span class="minimap-mapname" id="minimap-location-tag">MIDGAR OUTPOST</span>
+        </div>
+        <div class="minimap-canvas-wrapper">
+          <canvas id="minimap-canvas" width="160" height="160"></canvas>
+        </div>
+        <div class="minimap-legend">
+          <span class="m-legend-item"><span class="m-dot player"></span> You</span>
+          <span class="m-legend-item"><span class="m-dot monster"></span> Enemy</span>
+          <span class="m-legend-item"><span class="m-dot npc"></span> NPC</span>
+          <span class="m-legend-item"><span class="m-dot portal"></span> Portal</span>
+        </div>
+      </div>
+
+      <!-- Bottom Controller Keys (WASD + Shift + Space - Compact Minimalist Layout) -->
+      <div class="bottom-controller-hud">
+        <div class="key-cluster-wrapper">
+          <div class="cluster-label">MOVE</div>
+          <div class="wasd-grid">
+            <div class="key-cap" id="key-w" data-key="KeyW">W</div>
+            <div class="key-row">
+              <div class="key-cap" id="key-a" data-key="KeyA">A</div>
+              <div class="key-cap" id="key-s" data-key="KeyS">S</div>
+              <div class="key-cap" id="key-d" data-key="KeyD">D</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-keys-wrapper">
+          <div class="cluster-label">ACTIONS</div>
+          <div class="action-buttons-grid">
+            <div class="key-cap wide" id="key-shift" data-key="ShiftLeft">
+              <span class="key-name">SHIFT</span>
+              <span class="key-desc">วิ่งเร็ว</span>
+            </div>
+            <div class="key-cap wide space-key" id="key-space" data-key="Space">
+              <span class="key-name">SPACEBAR</span>
+              <span class="key-desc">คุย / สำรวจ</span>
+            </div>
+            <div class="key-cap wide slash-key" id="btn-hud-slash" data-key="KeyF" title="กด [F] หรือคลิกเพื่อฟันดาบคอมโบ (Buster Sword Combo)">
+              <span class="key-name">⚔️ [F / CLICK]</span>
+              <span class="key-desc">ฟันดาบคอมโบ</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TURN-BASED BATTLE HUD (Active in Battle) ================= -->
+    <div id="battle-hud" class="hud-group" style="display: none;">
+      <!-- Encounter Initiative Banner (Preemptive Strike vs Ambush) -->
+      <div id="battle-initiative-banner" class="battle-initiative-banner" style="display: none;">
+        <span class="init-icon" id="init-banner-icon">⚔️</span>
+        <span class="init-text" id="init-banner-text">PREEMPTIVE STRIKE! ชิงโจมตีก่อน</span>
+      </div>
+
+      <!-- Elemental Affinity Chart Banner (แพ้ทาง/ชนะทาง ดาเมจ 2X) -->
+      <div class="elemental-wheel-card">
+        <div class="wheel-title">
+          <span>⚡ ELEMENTAL WEAKNESS CHART (ชนะทาง DAMAGE 2.0x!)</span>
+        </div>
+        <div class="wheel-relations">
+          <div class="elem-node fire"><span class="elem-icon">🔥</span> FIRE (ไฟ)</div>
+          <span class="relation-arrow">➔ 2x ➔</span>
+          <div class="elem-node earth"><span class="elem-icon">🌿</span> EARTH (ดิน)</div>
+          <span class="relation-arrow">➔ 2x ➔</span>
+          <div class="elem-node thunder"><span class="elem-icon">⚡</span> THUNDER (สายฟ้า)</div>
+          <span class="relation-arrow">➔ 2x ➔</span>
+          <div class="elem-node water"><span class="elem-icon">💧</span> WATER (น้ำ)</div>
+          <span class="relation-arrow">➔ 2x ➔</span>
+          <div class="elem-node fire"><span class="elem-icon">🔥</span> FIRE</div>
+        </div>
+      </div>
+
+      <!-- Action Order / CT Timeline (FFT / FFX Style) -->
+      <div class="turn-order-container" id="turn-order-container">
+        <span class="timeline-label">⚡ CT TIMELINE:</span>
+        <div class="timeline-chips" id="timeline-chips"></div>
+      </div>
+
+      <!-- Boss Health & Stance Warning Card (For Mini-Boss Guard Scorpion) -->
+      <div class="boss-health-card" id="boss-health-card" style="display: none;">
+        <div class="boss-name-row">
+          <div class="boss-title-left">
+            <span class="boss-icon">🦂</span>
+            <span class="boss-name" id="boss-name-label">GUARD SCORPION (MINI-BOSS)</span>
+          </div>
+          <span class="boss-phase-badge" id="boss-phase-badge">PHASE 1</span>
+        </div>
+        <div class="boss-hp-track">
+          <div class="boss-hp-fill" id="boss-hp-fill" style="width: 100%;"></div>
+        </div>
+        <div class="boss-hp-num" id="boss-hp-num">3200 / 3200 HP</div>
+        <div class="boss-stance-warning" id="boss-stance-warning" style="display: none;">
+          ⚠️ TAIL UP! TAIL LASER CHARGING (DO NOT ATTACK WITH PHYSICAL WHILE TAIL IS UP!)
+        </div>
+      </div>
+
+      <!-- Enemy Selection / Status Cards (Top) -->
+      <div class="battle-enemies-container" id="enemies-hud-container">
+        <!-- Rendered dynamically by JS -->
+      </div>
+
+      <!-- Turn Indicator Banner -->
+      <div class="turn-banner" id="turn-banner">
+        <span class="turn-glow-text" id="turn-banner-text">PLAYER TURN: เลือกคำสั่งต่อสู้</span>
+      </div>
+
+      <!-- Combat Dialog / Message Log -->
+      <div class="combat-log-card" id="combat-log-box">
+        <div class="log-title">BATTLE LOG:</div>
+        <div class="log-content" id="log-text">เตรียมพร้อมเข้าสู่การต่อสู้! โจมตีด้วยธาตุที่ศัตรูแพ้ทางเพื่อทำดาเมจ 2
+          เท่า!</div>
+      </div>
+
+      <!-- Bottom Battle Console (Party Status + Command Menus) -->
+      <div class="battle-bottom-console">
+        <!-- Party Members Status Cards -->
+        <div class="party-status-panel" id="party-hud-container">
+          <!-- Rendered dynamically by JS (Cloud, Tifa, Vivi) -->
+        </div>
+
+        <!-- Main Actions Menu -->
+        <div class="battle-menu-window" id="main-actions-menu">
+          <div class="menu-header">COMMANDS: <span id="active-actor-name" style="color: #facc15;">Cloud</span></div>
+          <div class="command-grid">
+            <button class="cmd-btn" id="btn-attack">
+              <span class="cmd-icon">
+                <img
+                  src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Sword/64px/Sword 1st 64px.png"
+                  alt="Attack" class="cmd-pixel-icon">
+              </span>
+              <div class="cmd-texts">
+                <span class="cmd-title">ATTACK (โจมตี)</span>
+                <span class="cmd-sub">กายภาพ (Physical)</span>
+              </div>
+            </button>
+
+            <button class="cmd-btn" id="btn-magic">
+              <span class="cmd-icon">
+                <img
+                  src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Main/Star/64px/Golden Star 1st 64px.png"
+                  alt="Abilities" class="cmd-pixel-icon">
+              </span>
+              <div class="cmd-texts">
+                <span class="cmd-title">ABILITIES / SKILLS</span>
+                <span class="cmd-sub">สกิลประจำอาชีพ &amp; เวทมนตร์</span>
+              </div>
+            </button>
+
+            <button class="cmd-btn" id="btn-defend">
+              <span class="cmd-icon">
+                <img
+                  src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Shield/64px/Shield 1st 64px.png"
+                  alt="Defend" class="cmd-pixel-icon">
+              </span>
+              <div class="cmd-texts">
+                <span class="cmd-title">DEFEND (บล็อก &amp; พารี่)</span>
+                <span class="cmd-sub">ลดดาเมจ 55% + Parry สวนกลับ 50%</span>
+              </div>
+            </button>
+
+            <button class="cmd-btn" id="btn-limit">
+              <span class="cmd-icon">
+                <img
+                  src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Main/Fire/64px/Purple Fire 1st 64px.png"
+                  alt="Limit Break" class="cmd-pixel-icon">
+              </span>
+              <div class="cmd-texts">
+                <span class="cmd-title">LIMIT BREAK</span>
+                <span class="cmd-sub">ท่าไม้ตายสูงสุด (100%)</span>
+              </div>
+            </button>
+
+            <button class="cmd-btn" id="btn-items">
+              <span class="cmd-icon">
+                <img
+                  src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Potion/64px/Blue Potion 1st 64px.png"
+                  alt="Items" class="cmd-pixel-icon">
+              </span>
+              <div class="cmd-texts">
+                <span class="cmd-title">ITEMS (ไอเทม)</span>
+                <span class="cmd-sub">Potion / Ether / Elixir</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sub-Menu: Dynamic Character Abilities / Skills -->
+        <div class="battle-menu-window sub-menu" id="magic-sub-menu" style="display: none;">
+          <div class="menu-header-row">
+            <div class="menu-header" id="skills-sub-header">SELECT ABILITY</div>
+            <button class="menu-back-btn" id="btn-magic-back">✕ ยกเลิก</button>
+          </div>
+          <div class="spell-grid" id="character-skills-grid">
+            <!-- Dynamically populated per active party character -->
+          </div>
+        </div>
+
+        <!-- Sub-Menu: Target Enemy Selection -->
+        <div class="battle-menu-window sub-menu" id="target-sub-menu" style="display: none;">
+          <div class="menu-header-row">
+            <div class="menu-header">SELECT TARGET ENEMY</div>
+            <button class="menu-back-btn" id="btn-target-back">✕ ยกเลิก</button>
+          </div>
+          <div class="target-grid" id="target-buttons-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Sub-Menu: Items -->
+        <div class="battle-menu-window sub-menu" id="items-sub-menu" style="display: none;">
+          <div class="menu-header-row">
+            <div class="menu-header">SELECT ITEM</div>
+            <button class="menu-back-btn" id="btn-items-back">✕ ยกเลิก</button>
+          </div>
+          <div class="item-grid" id="battle-items-grid">
+            <!-- Dynamically populated from inventory -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Battle Victory / Game Over Modal -->
+    <div id="battle-result-modal" class="result-modal" style="display: none;">
+      <div class="result-card">
+        <div class="result-icon" id="res-icon">🏆</div>
+        <h2 class="result-title" id="res-title">VICTORY ACHIEVED!</h2>
+        <p class="result-sub" id="res-sub">ชนะการต่อสู้! ได้รับ EXP, JP และไอเทมรางวัล</p>
+        <div class="result-stats" id="res-stats">
+          <!-- Reward breakdown -->
+        </div>
+        <button class="result-btn" id="btn-result-close">กลับสู่การสำรวจ (CONTINUE)</button>
+      </div>
+    </div>
+
+    <!-- RPG Dialog Box with Character Portrait -->
+    <div id="dialog-box" class="rpg-dialog" style="display: none;">
+      <div class="dialog-inner">
+        <div class="dialog-portrait-wrapper" id="dialog-portrait-box">
+          <img id="dialog-portrait" class="dialog-portrait-img" src="portraits/portrait_merchant.jpg" alt="Portrait">
+        </div>
+        <div class="dialog-content-area">
+          <div class="dialog-header-row">
+            <span class="dialog-name" id="dialog-name">Anna (แม่ค้าพเนจร)</span>
+            <span class="dialog-role-badge" id="dialog-role">MERCHANT</span>
+          </div>
+          <div class="dialog-text" id="dialog-text">Hello there, traveler!</div>
+          <div class="dialog-footer-actions">
+            <button id="btn-dialog-open-shop" class="btn-dialog-shop-action" style="display: none;">
+              🛒 ซื้อ-ขายสินค้า (ENTER SHOP)
+            </button>
+            <div class="dialog-prompt" id="dialog-prompt-text">▼ [SPACE] ถัดไป / เปิดร้านค้า</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expanded RPG Shop & Armory Menu with BUY & SELL Tabs -->
+    <div id="shop-menu" class="shop-menu" style="display: none;">
+      <div class="shop-header">
+        <div class="shop-title-group">
+          <img src="portraits/portrait_merchant.jpg" class="shop-portrait-thumb" alt="Merchant Anna">
+          <div>
+            <h2>ANNA'S TRAVELING EMPORIUM &amp; OUTPOST</h2>
+            <p class="shop-sub">ร้านขายยาฟื้นพลัง คลังอาวุธระดับตำนาน และรับซื้อวัตถุดิบ Material โดย แม่ค้า Anna</p>
+          </div>
+        </div>
+        <div class="shop-gil-box">
+          <span class="gil-label">ยอดเงินคงเหลือ:</span>
+          <span class="shop-gil"><span id="shop-gil-count">500</span> 🪙 GIL</span>
+        </div>
+      </div>
+
+      <!-- Shop Category Navigation Tabs -->
+      <div class="shop-nav-tabs">
+        <button class="shop-tab-btn active" id="tab-btn-items" data-tab="items">
+          <img
+            src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Potion/64px/Blue Potion 1st 64px.png"
+            class="tab-pixel-icon" alt="Items">
+          <span>ซื้อยาฟื้นพลัง (ITEMS)</span>
+        </button>
+        <button class="shop-tab-btn" id="tab-btn-weapons" data-tab="weapons">
+          <img src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Sword/64px/Sword 1st 64px.png"
+            class="tab-pixel-icon" alt="Weapons">
+          <span>คลังอาวุธ &amp; ดาบ (WEAPONS)</span>
+        </button>
+        <button class="shop-tab-btn" id="tab-btn-sell" data-tab="sell">
+          <img
+            src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Currency/Cash/64px/Golden Cash 1st 64px.png"
+            class="tab-pixel-icon" alt="Sell">
+          <span>ขายไอเทม &amp; วัตถุดิบ (SELL)</span>
+        </button>
+      </div>
+
+      <!-- Shop Tab Content: Items -->
+      <div class="shop-tab-content active" id="shop-content-items">
+        <div class="shop-items-grid" id="shop-items-container">
+          <!-- Populated dynamically via JS with real Icons/icon*.png -->
+        </div>
+      </div>
+
+      <!-- Shop Tab Content: Weapons -->
+      <div class="shop-tab-content" id="shop-content-weapons" style="display: none;">
+        <div class="shop-items-grid" id="shop-weapons-container">
+          <!-- Populated dynamically via JS with real weapon sprites from File.png -->
+        </div>
+      </div>
+
+      <!-- Shop Tab Content: Sell (Materials & Consumables) -->
+      <div class="shop-tab-content" id="shop-content-sell" style="display: none;">
+        <div class="shop-items-grid" id="shop-sell-container">
+          <!-- Populated dynamically via JS with player materials and items -->
+        </div>
+      </div>
+
+      <!-- Equipped Weapon Status Banner -->
+      <div class="shop-equipped-banner" id="shop-equipped-banner">
+        <span>🗡️ อาวุธที่สวมใส่ปัจจุบัน: <b id="shop-equipped-name" style="color: #facc15;">Buster Greatsword</b>
+          (<span id="shop-equipped-atk">+25 ATK</span>)</span>
+      </div>
+
+      <button id="btn-close-shop" class="result-btn" style="margin-top: 14px; width: 100%;">ออกจากร้านค้า (LEAVE
+        SHOP)</button>
+    </div>
+
+    <!-- ================= MAIN MENU / PAUSE MODAL (Tactical RPG Menu) ================= -->
+    <div id="main-menu-modal" class="main-menu-modal" style="display: none;">
+      <div class="main-menu-window">
+        <!-- Menu Header -->
+        <div class="main-menu-header">
+          <div class="menu-title-group">
+            <span class="menu-icon">📜</span>
+            <div>
+              <h2>TACTICAL RPG MAIN MENU</h2>
+              <p class="menu-subtitle">ระบบสถานะตัวละคร, สายอาชีพ (Job System), คลังเก็บของ และแผนที่</p>
+            </div>
+          </div>
+          <div class="menu-header-right">
+            <div class="menu-gil-badge">
+              <span>ยอดเงิน: </span><b id="menu-gil-count" style="color: #facc15;">500</b> 🪙 GIL
+            </div>
+            <button id="btn-close-main-menu" class="modal-close-btn">✕ ปิดเมนู [ESC / M]</button>
+          </div>
+        </div>
+
+        <div class="main-menu-body">
+          <!-- Left Navigation Sidebar -->
+          <nav class="main-menu-sidebar">
+            <button class="menu-nav-btn active" data-tab="party">
+              <img
+                src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Main/Heart/64px/Heart 1st 64px.png"
+                class="sidebar-pixel-icon" alt="Party">
+              <span>PARTY &amp; STATUS</span>
+            </button>
+            <button class="menu-nav-btn" data-tab="jobs">
+              <img
+                src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Shield/64px/Shield 1st 64px.png"
+                class="sidebar-pixel-icon" alt="Jobs">
+              <span>JOB SYSTEM (CLASS)</span>
+            </button>
+            <button class="menu-nav-btn" data-tab="inventory">
+              <img
+                src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Backpack/64px/Backpack 1st 64px.png"
+                class="sidebar-pixel-icon" alt="Inventory">
+              <span>INVENTORY &amp; ITEMS</span>
+            </button>
+            <button class="menu-nav-btn" data-tab="equipment">
+              <img
+                src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Sword/64px/Sword 1st 64px.png"
+                class="sidebar-pixel-icon" alt="Equipment">
+              <span>EQUIPMENT</span>
+            </button>
+            <button class="menu-nav-btn" data-tab="worldmap">
+              <img
+                src="assets/Free Icon Pack v3.1 (Basic)/Free Icon Pack v3.1 (Basic)/Item/Location Pin/64px/Location Pin 1st 64px.png"
+                class="sidebar-pixel-icon" alt="World">
+              <span>WORLD &amp; DUNGEON</span>
+            </button>
+          </nav>
+
+          <!-- Main Content Area -->
+          <main class="main-menu-content">
+            <!-- TAB 1: Party & Status -->
+            <section class="menu-tab-panel active" id="menu-tab-party">
+              <!-- World Status & Field Telemetry Header Card -->
+              <div class="worldmap-card"
+                style="margin-bottom: 18px; background: linear-gradient(135deg, rgba(30, 58, 138, 0.45) 0%, rgba(15, 23, 42, 0.8) 100%); border: 1.5px solid rgba(56, 189, 248, 0.35);">
+                <div class="location-header"
+                  style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span class="loc-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8;">WORLD TELEMETRY
+                      &amp; EXPLORATION</span>
+                    <h3 style="margin-top: 4px; font-size: 15px;">สถานะการผจญภัย &amp; บันทึกพิกัดสนามรบ</h3>
+                  </div>
+                  <div style="font-size: 11px; color: #94a3b8;">กด <b>[ESC]</b> หรือ <b>[M]</b> เพื่อปิดหน้าต่างนี้
+                  </div>
+                </div>
+                <div class="telemetry-grid"
+                  style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 10px 14px; background: rgba(10, 15, 30, 0.75); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">📍 LOCATION:</span>
+                    <span class="telem-val" id="tele-location"
+                      style="color: #4ade80; font-weight: 700; font-size: 11px;">🏡 Midgar Edge Village</span>
+                  </div>
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">👑 LEADER:</span>
+                    <span class="telem-val" style="color: #fde047; font-weight: 700; font-size: 11px;">Cloud Stif
+                      (Lv.<span id="tele-level">12</span>)</span>
+                  </div>
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">🧭 DIRECTION:</span>
+                    <span class="telem-val" id="tele-dir"
+                      style="color: #f8fafc; font-weight: 700; font-size: 11px;">SOUTH (↓)</span>
+                  </div>
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">⚡ STATE:</span>
+                    <span class="telem-val state-idle" id="tele-state"
+                      style="color: #38bdf8; font-weight: 700; font-size: 11px;">IDLE</span>
+                  </div>
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">🏃 SPEED:</span>
+                    <span class="telem-val" id="tele-speed" style="color: #f8fafc; font-weight: 700; font-size: 11px;">0
+                      px/s</span>
+                  </div>
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">⚔️ WEAPON:</span>
+                    <span class="telem-val" id="tele-weapon"
+                      style="color: #38bdf8; font-weight: 700; font-size: 11px;">🗡️ Buster Greatsword</span>
+                  </div>
+                  <div class="telem-row">
+                    <span class="telem-label" style="font-size: 11px; color: #94a3b8;">🪙 GIL:</span>
+                    <span class="telem-val" id="tele-gil" style="color: #facc15; font-weight: 700; font-size: 11px;">500
+                      🪙</span>
+                  </div>
+                </div>
+                <div
+                  style="margin-top: 10px; font-size: 11px; color: #94a3b8; display: flex; gap: 14px; flex-wrap: wrap;">
+                  <span>🎮 <b>WASD / ปุ่มลูกศร:</b> เคลื่อนที่</span>
+                  <span>🏃 <b>SHIFT:</b> วิ่งเร็ว</span>
+                  <span>⚔️ <b>SPACE:</b> โจมตี / เปิดกล่องสมบัติ / คุยกับ NPC</span>
+                  <span>📖 <b>ESC / M:</b> สลับเมนูหลัก</span>
+                </div>
+              </div>
+
+              <div class="menu-section-header">
+                <h3>👥 จัดทีมรบหลัก (ACTIVE BATTLE PARTY - 4 SLOTS)</h3>
+                <span class="section-sub">สามารถสลับตัวละครในทีมได้สูงสุด 4 คน และจัดสรรแต้มสเตตัส (Stat Points)
+                  ได้อิสระ!</span>
+              </div>
+              <div class="party-status-cards" id="menu-party-cards-container">
+                <!-- Dynamically populated with 4 active party members -->
+              </div>
+
+              <div class="menu-section-header" style="margin-top: 20px;">
+                <h3>🛡️ คลังตัวละครสำรอง &amp; สลับทีม (HERO ROSTER &amp; RESERVES)</h3>
+                <span class="section-sub">คลิกปุ่ม 'สลับเข้าทีม' เพื่อนำตัวละครสำรองมาแทนที่ในปาร์ตี้รบ</span>
+              </div>
+              <div class="roster-cards-grid" id="menu-roster-cards-container">
+                <!-- Dynamically populated with reserve heroes (Cecil, Aeris, Chrono) -->
+              </div>
+            </section>
+
+            <!-- TAB 2: Job System (Class) -->
+            <section class="menu-tab-panel" id="menu-tab-jobs" style="display: none;">
+              <div class="jobs-overview" id="menu-jobs-container">
+                <!-- FFT-style Job cards with Job Lv, Job EXP, JP, and Skill Tree -->
+              </div>
+            </section>
+
+            <!-- TAB 3: Inventory (Consumables & Materials) -->
+            <section class="menu-tab-panel" id="menu-tab-inventory" style="display: none;">
+              <div class="inventory-subtabs">
+                <button class="inv-subtab-btn active" id="inv-tab-btn-consumables">🧪 ไอเทมยาฟื้นพลัง
+                  (CONSUMABLES)</button>
+                <button class="inv-subtab-btn" id="inv-tab-btn-materials">💎 วัตถุดิบตีบวก &amp; ขาย
+                  (MATERIALS)</button>
+              </div>
+              <div class="inventory-grid-wrapper" id="menu-inventory-container">
+                <!-- Populated dynamically with items and materials -->
+              </div>
+            </section>
+
+            <!-- TAB 4: Equipment -->
+            <section class="menu-tab-panel" id="menu-tab-equipment" style="display: none;">
+              <div class="equipment-panel" id="menu-equipment-container">
+                <!-- Equipment management per party member -->
+              </div>
+            </section>
+
+            <!-- TAB 5: World & Dungeon Map -->
+            <section class="menu-tab-panel" id="menu-tab-worldmap" style="display: none;">
+              <div class="worldmap-panel" id="menu-worldmap-container">
+                <div class="worldmap-card">
+                  <div class="location-header">
+                    <span class="loc-badge">📍 10 FLOORS EXPEDITION</span>
+                    <h3 id="map-info-title">Labyrinth of Awakening (มหาดันเจี้ยน 10 ชั้น)</h3>
+                  </div>
+                  <p class="loc-desc" id="map-info-desc">มหาดันเจี้ยนโบราณ 10 ชั้นที่ทอดยาวลงสู่แกนพิภพ
+                    ฝ่าดงอสูรเพื่อช่วยเหลือเพื่อนพ้อง แวะพักผ่อนที่ Safe Point หมู่บ้านชั้น B5F
+                    และมุ่งสู่บัลลังก์สุดท้ายที่ชั้น B10F!</p>
+
+                  <div class="map-zones-list" id="dungeon-floors-list">
+                    <div class="zone-item active" data-floor="1">
+                      <span class="zone-icon">⛓️</span>
+                      <div class="zone-details">
+                        <b>B1F. Cell of Awakening (ห้องขังแห่งการตื่นรู้)</b>
+                        <small>จุดที่ Cloud ตื่นขึ้นมาโดยไร้ความทรงจำ เผชิญหน้าสไลม์และหาบันไดลงชั้นถัดไป</small>
+                      </div>
+                      <span class="zone-status">CURRENT</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="2">
+                      <span class="zone-icon">⚰️</span>
+                      <div class="zone-details">
+                        <b>B2F. Crypt of the Fallen (สุสานผู้ถูกลืม)</b>
+                        <small>สุสานโบราณ &amp; จุดช่วยเหลือ <b>Fata Lockhart</b> ที่ถูกขังในกรงเหล็ก</small>
+                      </div>
+                      <span class="zone-status danger">Lv.3-4</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="3">
+                      <span class="zone-icon">💎</span>
+                      <div class="zone-details">
+                        <b>B3F. Subterranean Caverns (ถ้ำหินงอกใต้พิภพ)</b>
+                        <small>ถ้ำผลึกคริสตัล &amp; จุดช่วยเหลือ <b>Vivi Spellcraft</b> จอมเวทดำ</small>
+                      </div>
+                      <span class="zone-status danger">Lv.5-6</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="4">
+                      <span class="zone-icon">🛡️</span>
+                      <div class="zone-details">
+                        <b>B4F. Gate of the Colossus (ป้อมปราการผู้พิทักษ์)</b>
+                        <small>ห้องโถงผู้พิทักษ์ Mini-Boss <b>Iron Sentinel Golem</b> &amp; รางวัล Roguelite 3
+                          ตัวเลือก</small>
+                      </div>
+                      <span class="zone-status boss">MINI-BOSS</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="5">
+                      <span class="zone-icon">🏡</span>
+                      <div class="zone-details">
+                        <b>B5F. Midgar Edge Haven (หมู่บ้านลี้ภัยใต้พิภพ)</b>
+                        <small><b>⭐ SAFE POINT!</b> ร้านค้า Anna, กองไฟฟื้น HP/MP 100%, Chrono, Cecil
+                          และแท่นวาร์ป</small>
+                      </div>
+                      <span class="zone-status" style="background:#15803d;color:#4ade80;">SAFE POINT</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="6">
+                      <span class="zone-icon">🌋</span>
+                      <div class="zone-details">
+                        <b>B6F. Magma Crucible (เตาหลอมแมกม่า)</b>
+                        <small>ดินแดนธารลาวาเดือดและอสูรเพลิง Magma Drake</small>
+                      </div>
+                      <span class="zone-status danger">Lv.10</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="7">
+                      <span class="zone-icon">❄️</span>
+                      <div class="zone-details">
+                        <b>B7F. Frostfang Hollows (หุบผาเหมันต์)</b>
+                        <small>ถ้ำน้ำแข็งเยือกแข็งและอสูร Frost Wendigo</small>
+                      </div>
+                      <span class="zone-status danger">Lv.12</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="8">
+                      <span class="zone-icon">🔮</span>
+                      <div class="zone-details">
+                        <b>B8F. Abyssal Vault (สุสานวิญญาณแห่งความมืด)</b>
+                        <small>ห้องนิรภัยใต้บาดาลที่สถิตของวิญญาณทมิฬ Nether Chimera</small>
+                      </div>
+                      <span class="zone-status danger">Lv.14</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="9">
+                      <span class="zone-icon">🐉</span>
+                      <div class="zone-details">
+                        <b>B9F. Dragon's Maw (รังมังกรบรรพกาล)</b>
+                        <small>รังมังกรเพลิงดึกดำบรรพ์ <b>Ancient Red Dragon</b> (Elite Boss) &amp; รางวัล
+                          Roguelite</small>
+                      </div>
+                      <span class="zone-status boss">ELITE BOSS</span>
+                    </div>
+
+                    <div class="zone-item" data-floor="10">
+                      <span class="zone-icon">👑</span>
+                      <div class="zone-details">
+                        <b>B10F. Throne of the Void (บัลลังก์แห่งความว่างเปล่า)</b>
+                        <small><b>👑 FINAL BATTLE!</b> ปะทะ <b>Bahamut Zero / Void Emperor</b>
+                          เพื่อนำชัยชนะและแสงสว่างกลับคืนมา</small>
+                      </div>
+                      <span class="zone-status boss" style="background:#7e22ce;color:#f0abfc;">FINAL BOSS</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 1. TITLE SCREEN OVERLAY ================= -->
+  <div id="title-screen-overlay" class="title-screen-overlay">
+    <div class="title-bg-scrim"></div>
+    <div class="title-modal-card">
+      <div class="title-logo-box">
+        <div class="title-crest-icon">🗡️ ⚡ 🛡️</div>
+        <h1 class="title-main-heading">FIRST FANTASY 67</h1>
+        <h2 class="title-main-sub">LABYRINTH OF AWAKENING • มหาดันเจี้ยนแห่งการตื่นรู้</h2>
+        <div class="title-pill-tag">10 FLOORS ROGUELITE DUNGEON CRAWLER</div>
+      </div>
+
+      <div class="title-action-buttons">
+        <button id="btn-title-start" class="title-btn btn-primary-start">
+          <span class="btn-t-icon">⚔️</span>
+          <span class="btn-t-text">เริ่มการผจญภัย (START GAME)</span>
+        </button>
+        <button id="btn-title-story" class="title-btn">
+          <span class="btn-t-icon">📜</span>
+          <span class="btn-t-text">เนื้อเรื่อง &amp; บทนำ (PROLOGUE &amp; STORY)</span>
+        </button>
+        <button id="btn-title-settings" class="title-btn">
+          <span class="btn-t-icon">⚙️</span>
+          <span class="btn-t-text">การตั้งค่า &amp; วิธีเล่น (SETTINGS)</span>
+        </button>
+        <button id="btn-title-guide" class="title-btn">
+          <span class="btn-t-icon">🏰</span>
+          <span class="btn-t-text">คู่มือดันเจี้ยน 10 ชั้น (DUNGEON GUIDE)</span>
+        </button>
+      </div>
+
+      <div class="title-bottom-status">
+        <span>✨ ชั้น 5 เป็น Safe Point หมู่บ้านลี้ภัย • สู้บอสจบมีรางวัลการ์ด Roguelite 3 ตัวเลือก</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 2. TITLE SCREEN SUB-MODAL: STORY & PROLOGUE ================= -->
+  <div id="title-story-modal" class="title-sub-modal" style="display: none;">
+    <div class="sub-modal-card">
+      <div class="sub-modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="sub-m-icon">📜</span>
+          <div>
+            <h3>PROLOGUE &amp; LORE (บทนำและเนื้อเรื่อง)</h3>
+            <p>เรื่องราวของชายหนุ่มผู้ตื่นขึ้นในมหาดันเจี้ยนใต้พิภพ</p>
+          </div>
+        </div>
+        <button class="sub-modal-close" id="btn-close-story">✕ ปิด</button>
+      </div>
+      <div class="sub-modal-body">
+        <div class="lore-paragraph">
+          <p><b>ณ ส่วนลึกสุดของ Labyrinth of Awakening...</b></p>
+          <p>ชายหนุ่มผมทองพร้อมดาบเล่มโต (Cloud) ลืมตาตื่นขึ้นบนพื้นหินเย็นเยียบของห้องขังชั้น B1F
+            ความทรงจำของเขากลายเป็นศูนย์ จำไม่ได้ว่าตนเองเป็นใคร และเหตุใดจึงถูกนำมาทิ้งไว้ในคุกใต้ดินลี้ลับแห่งนี้</p>
+          <p>มีเพียงสัญชาตญาณนักรบและวิชาดาบที่ยังคงหลงเหลืออยู่ในสัญชาตญาณ... เสียงสะท้อนจากความมืดบอกว่า
+            ดันเจี้ยนแห่งนี้มีทั้งหมด <b>10 ชั้น</b> ที่เชื่อมต่อไปยังแกนโลก</p>
+          <p>ระหว่างทางลงไป เขาจะได้พบกับสหายร่วมชะตากรรมที่ถูกคุมขังอยู่: <b>Tifa</b> ในสุสานชั้น B2F, <b>Vivi</b>
+            จอมเวทน้อยในถ้ำชั้น B3F... และเมื่อฝ่าผู้พิทักษ์ Mini-Boss ไปได้ เขาจะค้นพบ <b>Midgar Edge Haven (ชั้น
+              B5F)</b> หมู่บ้านลี้ภัยใต้พิภพอันเป็น Safe Point ที่มีทั้งร้านค้าของ Anna, Campfire ฟื้นพลัง และแท่นวาร์ป!
+          </p>
+          <p>ปลายทางสุดท้ายคือ <b>ชั้น B10F: Throne of the Void</b> ที่ซึ่ง <b>Bahamut Zero</b>
+            มังกรราชันมืดรอคอยผู้กล้าเพื่อปิดฉากมหากาพย์การหลบหนีนี้!</p>
+        </div>
+      </div>
+      <button class="result-btn" id="btn-start-from-story" style="margin-top: 14px; width: 100%;">⚔️ เริ่มต้นการตื่นรู้
+        (AWAKEN NOW)</button>
+    </div>
+  </div>
+
+  <!-- ================= 3. TITLE SCREEN SUB-MODAL: SETTINGS & CONTROLS ================= -->
+  <div id="title-settings-modal" class="title-sub-modal" style="display: none;">
+    <div class="sub-modal-card">
+      <div class="sub-modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="sub-m-icon">⚙️</span>
+          <div>
+            <h3>SETTINGS &amp; CONTROLS (การตั้งค่าและวิธีควบคุม)</h3>
+            <p>ปรับแต่งเสียงและการควบคุมเกม First Fantasy 67</p>
+          </div>
+        </div>
+        <button class="sub-modal-close" id="btn-close-settings">✕ ปิด</button>
+      </div>
+      <div class="sub-modal-body">
+        <div class="settings-group">
+          <h4 style="color:#38bdf8;margin-bottom:8px;">🔊 ระบบเสียง (AUDIO)</h4>
+          <div class="setting-row"
+            style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <span>เสียงเอฟเฟกต์ (Synthesizer Web Audio SFX)</span>
+            <button class="modal-pill-btn active" id="btn-toggle-sfx-modal">🔊 เปิดใช้งาน (ENABLED)</button>
+          </div>
+          <div class="setting-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+            <span>เสียงสังเคราะห์บรรยากาศดันเจี้ยน (Ambient Synth Loop)</span>
+            <button class="modal-pill-btn active" id="btn-toggle-bgm-modal">🎵 เปิดใช้งาน (ENABLED)</button>
+          </div>
+        </div>
+
+        <div class="settings-group" style="margin-top: 16px;">
+          <h4 style="color:#facc15;margin-bottom:8px;">🎮 วิธีการบังคับ (CONTROLS CHEAT SHEET)</h4>
+          <div class="controls-guide-grid">
+            <div class="ctrl-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>เคลื่อนที่ 4 ทิศทาง (8 ทิศทางลื่นไหล)</span>
+            </div>
+            <div class="ctrl-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <kbd>SHIFT</kbd><span>วิ่งเร็ว (Sprint Mode 1.8x)</span>
+            </div>
+            <div class="ctrl-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <kbd>SPACEBAR</kbd><span>คุย NPC / ฟันดาบ / เปิดหีบสมบัติ / ก้าวลงบันได</span>
+            </div>
+            <div class="ctrl-row" style="display:flex;align-items:center;gap:8px;"><kbd>ESC</kbd> หรือ
+              <kbd>M</kbd><span>เปิดหน้าต่างเมนูหลัก (Tactical RPG Menu)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 4. TITLE SCREEN SUB-MODAL: 10-FLOOR DUNGEON GUIDE ================= -->
+  <div id="title-guide-modal" class="title-sub-modal" style="display: none;">
+    <div class="sub-modal-card wide">
+      <div class="sub-modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="sub-m-icon">🏰</span>
+          <div>
+            <h3>10-FLOORS DUNGEON EXPEDITION GUIDE</h3>
+            <p>คู่มือระบบดันเจี้ยน 10 ชั้น, จุดเซฟ และรางวัล 3 ตัวเลือก Roguelite</p>
+          </div>
+        </div>
+        <button class="sub-modal-close" id="btn-close-guide">✕ ปิด</button>
+      </div>
+      <div class="sub-modal-body">
+        <div class="guide-grid-layout" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+          <div class="guide-box">
+            <h4 style="color:#38bdf8;margin-bottom:8px;">🗺️ ลำดับชั้นดันเจี้ยน 10 ชั้น (10 FLOORS)</h4>
+            <ul class="guide-list" style="font-size:12px;line-height:1.7;padding-left:18px;color:#cbd5e1;">
+              <li><b>B1F [Cell of Awakening]:</b> คลาวด์ตื่นเดี่ยว สำรวจห้องขังและสู้สไลม์</li>
+              <li><b>B2F [Crypt of the Fallen]:</b> สุสานผู้ถูกลืม &amp; ช่วยเหลือ <b>Tifa</b> เข้าทีม</li>
+              <li><b>B3F [Subterranean Caverns]:</b> ถ้ำผลึกหินงอก &amp; ช่วยเหลือ <b>Vivi</b> เข้าทีม</li>
+              <li><b>B4F [Gate of Colossus]:</b> ป้อมผู้พิทักษ์ สู้ Mini-Boss Iron Golem ➔ รับการ์ด Roguelite 3 ตัวเลือก
+              </li>
+              <li><b>B5F [Midgar Edge Haven]:</b> <b>⭐ SAFE POINT!</b> หมู่บ้านลี้ภัย มีร้านค้า Anna, กองไฟฟื้น HP/MP
+                เต็ม 100%, จุดเปลี่ยนตัว Cecil/Chrono และแท่นวาร์ป</li>
+              <li><b>B6F [Magma Crucible]:</b> เตาหลอมแมกม่า อสูรเพลิง</li>
+              <li><b>B7F [Frostfang Hollows]:</b> หุบผาเหมันต์ อสูรน้ำแข็ง</li>
+              <li><b>B8F [Abyssal Vault]:</b> สุสานวิญญาณแห่งความมืดและหีบสมบัติชั้นสูง</li>
+              <li><b>B9F [Dragon&#39;s Maw]:</b> รังมังกรบรรพกาล สู้บอสมังกรแดง Ancient Dragon ➔ รับการ์ด Roguelite</li>
+              <li><b>B10F [Throne of Void]:</b> <b>👑 FINAL BOSS!</b> บัลลังก์มิติ สู้ Bahamut Zero เพื่อจบเกม</li>
+            </ul>
+          </div>
+
+          <div class="guide-box">
+            <h4 style="color:#facc15;margin-bottom:8px;">🃏 ระบบสุ่มการ์ด 3 ตัวเลือก (3-CARD ROGUELITE REWARDS)</h4>
+            <p style="font-size:12px;color:#cbd5e1;">หลังเอาชนะบอสหรือจบชั้น จะมีการ์ดให้เลือก 3 ใบ:</p>
+            <ul class="guide-list" style="font-size:12px;line-height:1.7;padding-left:18px;color:#cbd5e1;">
+              <li><b>1. ไอเทม &amp; วัตถุมงคล:</b> ยา Elixir, Phoenix Down, หรือเครื่องรางฟื้น HP อัตโนมัติ</li>
+              <li><b>2. สเตตัสถาวรทั้งทีม:</b> เพิ่ม ATK, เพิ่ม Max HP +150, เพิ่ม Speed +8 หรือ Magic +20</li>
+              <li><b>3. อาวุธ &amp; มาทีเรีย:</b> สุ่มตามระดับความหายาก (Common / Rare / Epic / Legendary)</li>
+            </ul>
+
+            <h4 style="color:#4ade80;margin-top:14px;margin-bottom:6px;">⚡ เควสต์โบนัสในการต่อสู้</h4>
+            <ul class="guide-list" style="font-size:12px;line-height:1.7;padding-left:18px;color:#cbd5e1;">
+              <li><b>⚡ Speed Clear (&lt; 60s):</b> รับ Gil โบนัส +350 Gil</li>
+              <li><b>🔥 2.0x Weakness Strike:</b> โจมตีชนะธาตุ รับ EXP โบนัส +35%</li>
+              <li><b>🛡️ Flawless (ไร้คนตาย):</b> ปลดล็อคระดับการ์ดขั้น Epic หรือ Legendary!</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 5. ROGUELITE 3-CARD REWARD MODAL (Mobile Style) ================= -->
+  <div id="roguelike-reward-modal" class="roguelike-reward-modal" style="display: none;">
+    <div class="reward-modal-backdrop"></div>
+    <div class="reward-modal-window">
+      <div class="reward-modal-header">
+        <div class="reward-trophy-icon">🏆</div>
+        <div>
+          <h2 id="reward-modal-title">BOSS DEFEATED! เลือกรับรางวัล 1 ใน 3</h2>
+          <p id="reward-modal-sub">เลือกเสริมความแกร่งให้กองกำลังของคุณก่อนก้าวลงสู่ชั้นถัดไป</p>
+        </div>
+      </div>
+
+      <!-- Bonus Challenge Badges -->
+      <div class="reward-challenges-row">
+        <div class="challenge-pill passed" id="chal-pill-speed">
+          <span class="c-icon">⚡</span>
+          <span class="c-desc">SPEED RUN:</span>
+          <span class="c-bonus" id="chal-val-speed">+350 GIL 🪙</span>
+        </div>
+        <div class="challenge-pill passed" id="chal-pill-elem">
+          <span class="c-icon">🔥</span>
+          <span class="c-desc">2.0x WEAKNESS:</span>
+          <span class="c-bonus" id="chal-val-elem">+35% EXP ⭐</span>
+        </div>
+        <div class="challenge-pill passed" id="chal-pill-flawless">
+          <span class="c-icon">🛡️</span>
+          <span class="c-desc">FLAWLESS SURVIVAL:</span>
+          <span class="c-bonus" id="chal-val-flawless">RARITY BOOST! 👑</span>
+        </div>
+      </div>
+
+      <!-- 3 Dynamic Cards -->
+      <div class="reward-cards-container" id="reward-cards-container">
+        <!-- Rendered dynamically by JS -->
+      </div>
+
+      <div class="reward-modal-footer">
+        <span>💡 คลิกเลือกการ์ดใบที่ต้องการเพื่อรับผลทันที</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 6. HAVEN WAYPOINT MODAL (B5F Safe Haven Warp) ================= -->
+  <div id="haven-waypoint-modal" class="haven-waypoint-modal" style="display: none;">
+    <div class="waypoint-window">
+      <div class="waypoint-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="wp-icon">🔮</span>
+          <div>
+            <h3>ANCIENT WAYPOINT CRYSTAL (เสาวาร์ปโบราณ)</h3>
+            <p>เลือกชั้นดันเจี้ยนที่ต้องการเดินทาง หรือมุ่งหน้าลงสู่ส่วนลึกชั้น B6F</p>
+          </div>
+        </div>
+        <button class="sub-modal-close" id="btn-close-waypoint">✕ ปิด</button>
+      </div>
+      <div class="waypoint-grid" id="waypoint-floors-grid">
+        <!-- Populated dynamically with unlocked floors -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js 3D Engine, Tree Data & Tree Ecosystem -->
+  <script src="lib/three.min.js"></script>
+  <script src="lib/OrbitControls.js"></script>
+  <script src="treeData.js"></script>
+  <script src="treeRenderer.js"></script>
+  <script src="main.js"></script>
+</body>
+
+</html>
