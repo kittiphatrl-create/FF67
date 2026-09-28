@@ -213,39 +213,41 @@ const ELEMENT_MULTIPLIERS = {
 };
 
 // ================= 3. Floating Damage & Particle VFX =================
+const _badgeWidthCache = {};
+
 class FloatingText {
   constructor(text, x, y, color = '#ffffff', isCrit = false, badgeText = '') {
     this.text = text;
     this.x = x;
     this.y = y;
-    this.targetY = y - 35;
+    this.targetY = y - 30;
     this.color = color;
     this.isCrit = isCrit;
     this.badgeText = badgeText;
     this.alpha = 1;
     this.age = 0;
-    // Lifespan: ~150 frames = 2.5 seconds at 60fps (stays long enough for player to easily read!)
-    this.maxLife = isCrit ? 165 : 145;
-    this.scale = isCrit ? 1.5 : 1.15;
+    // Snappy, readable lifespan: ~70 frames (1.1s) — avoids text congestion & lag
+    this.maxLife = isCrit ? 78 : 64;
+    this.scale = isCrit ? 1.4 : 1.1;
     this.currentScale = 0.4;
   }
 
   update() {
     this.age++;
-    // Quick pop-up bounce in first 10 frames
-    if (this.age <= 10) {
-      const p = this.age / 10;
+    // Quick pop-up bounce in first 8 frames
+    if (this.age <= 8) {
+      const p = this.age / 8;
       this.currentScale = 0.4 + (this.scale - 0.4) * (1 - Math.pow(1 - p, 3));
-      this.y += (this.targetY - this.y) * 0.25;
-    } else if (this.age < this.maxLife - 35) {
-      // Gentle linger float - very slow upward drift so it stays readable and stable!
-      this.y -= 0.15;
-      const targetScale = this.isCrit ? 1.35 : 1.05;
-      this.currentScale += (targetScale - this.currentScale) * 0.05;
+      this.y += (this.targetY - this.y) * 0.3;
+    } else if (this.age < this.maxLife - 18) {
+      // Gentle linger float upward
+      this.y -= 0.22;
+      const targetScale = this.isCrit ? 1.25 : 1.0;
+      this.currentScale += (targetScale - this.currentScale) * 0.08;
     } else {
-      // Smooth fade out over final 35 frames (~0.6s)
-      this.y -= 0.35;
-      this.alpha = Math.max(0, (this.maxLife - this.age) / 35);
+      // Smooth fade out over final 18 frames
+      this.y -= 0.45;
+      this.alpha = Math.max(0, (this.maxLife - this.age) / 18);
     }
   }
 
@@ -261,11 +263,14 @@ class FloatingText {
       ctx.font = `bold ${badgeFontSize}px 'Outfit', sans-serif`;
       
       const badgeY = this.y - (18 * this.currentScale);
-      const textWidth = ctx.measureText(this.badgeText).width;
+      if (_badgeWidthCache[this.badgeText] === undefined) {
+        _badgeWidthCache[this.badgeText] = ctx.measureText(this.badgeText).width;
+      }
+      const textWidth = _badgeWidthCache[this.badgeText];
       const padX = 8;
       const padY = 3;
 
-      // Badge pill background
+      // Badge pill background (crisp, no blur for peak 60 FPS)
       ctx.fillStyle = this.isCrit ? 'rgba(220, 38, 38, 0.95)' : 'rgba(217, 119, 6, 0.95)';
       ctx.strokeStyle = this.isCrit ? '#fca5a5' : '#fef08a';
       ctx.lineWidth = 1.5;
@@ -291,14 +296,11 @@ class FloatingText {
     // 2. Draw Main Damage Number
     const fontSize = Math.round((this.isCrit ? 26 : 20) * this.currentScale);
     ctx.font = `900 ${fontSize}px 'JetBrains Mono', 'Press Start 2P', monospace`;
+    ctx.shadowBlur = 0;
 
-    // Glow Effect
-    ctx.shadowBlur = this.isCrit ? 16 : 8;
-    ctx.shadowColor = this.isCrit ? '#ef4444' : this.color;
-
-    // Heavy Dark Outline for crisp readability against any background
+    // Crisp Dark Outline (3px for maximum performance, no heavy blur)
     ctx.strokeStyle = '#020617';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 3;
     ctx.strokeText(this.text, this.x, this.y);
 
     // Inner bright text
@@ -317,7 +319,23 @@ class CombatParticleSystem {
   }
 
   addText(text, x, y, color = '#ffffff', isCrit = false, badgeText = '') {
-    this.floatingTexts.push(new FloatingText(text, x, y, color, isCrit, badgeText));
+    // Cap active floating texts to 6 max: accelerate older texts so screen doesn't lag or clutter
+    if (this.floatingTexts.length >= 6) {
+      for (let i = 0; i < this.floatingTexts.length - 4; i++) {
+        const old = this.floatingTexts[i];
+        if (old.age < old.maxLife - 12) {
+          old.age = old.maxLife - 12;
+        }
+      }
+    }
+    // Stagger y slightly if overlapping with a recent floating text
+    let finalY = y;
+    for (const t of this.floatingTexts) {
+      if (Math.abs(t.x - x) < 32 && Math.abs(t.y - finalY) < 22) {
+        finalY -= 22;
+      }
+    }
+    this.floatingTexts.push(new FloatingText(text, x, finalY, color, isCrit, badgeText));
   }
 
   addAnimatedSprite(type, x, y, size = 120, fps = 28) {
@@ -439,15 +457,14 @@ class CombatParticleSystem {
       }
     });
 
+    // Batch draw particles without per-particle save/restore for performance
     this.particles.forEach(p => {
-      ctx.save();
       ctx.globalAlpha = Math.max(0, p.alpha);
       if (p.type === 'slashArc') {
         ctx.strokeStyle = p.color;
         ctx.lineWidth = p.lineWidth * p.alpha;
         ctx.lineCap = 'round';
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, p.startAngle, p.endAngle);
         ctx.stroke();
@@ -455,8 +472,7 @@ class CombatParticleSystem {
         p.radius += (p.maxRadius - p.radius) * 0.28;
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 3 * p.alpha;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.ellipse(p.x, p.y, p.radius, p.radius * 0.55, 0, 0, Math.PI * 2);
         ctx.stroke();
@@ -466,8 +482,8 @@ class CombatParticleSystem {
         ctx.arc(Math.round(p.x), Math.round(p.y), p.radius, 0, Math.PI * 2);
         ctx.fill();
       }
-      ctx.restore();
     });
+    ctx.globalAlpha = 1;
     this.floatingTexts.forEach(t => t.draw(ctx));
   }
 }
@@ -493,8 +509,6 @@ class CloudSpriteRenderer {
     if (isSlashing) {
       ctx.save();
       ctx.globalAlpha = 0.45;
-      ctx.shadowColor = '#38bdf8';
-      ctx.shadowBlur = 14;
       ctx.fillStyle = '#38bdf8';
       ctx.fillRect(-10, -12, 20, 52);
       ctx.fillStyle = '#bae6fd';
@@ -537,25 +551,18 @@ class CloudSpriteRenderer {
     this.px(ctx, '#1e293b', -3, 40, 6, 3);
     this.px(ctx, '#475569', -1, 43, 2, 2);
 
-    // 5. Dual Glowing Materia Slots (Pulsating Mako Green & Cyan)
-    const makoPulse = Math.sin(Date.now() / 220) * 0.25 + 0.75;
-    ctx.save();
-    ctx.shadowBlur = 8 * makoPulse;
-
+    // 5. Dual Glowing Materia Slots (Pulsating Mako Green & Cyan) — no shadowBlur for perf
     // Green Materia Slot
-    ctx.shadowColor = '#22c55e';
     this.px(ctx, '#022c22', -3, -4, 6, 6);
     this.px(ctx, '#15803d', -2, -3, 4, 4);
     this.px(ctx, '#22c55e', -1, -2, 2, 2);
     this.px(ctx, '#86efac', -1, -2, 1, 1);
 
     // Cyan / Lightning Materia Slot
-    ctx.shadowColor = '#38bdf8';
     this.px(ctx, '#082f49', -3, 6, 6, 6);
     this.px(ctx, '#0284c7', -2, 7, 4, 4);
     this.px(ctx, '#38bdf8', -1, 8, 2, 2);
     this.px(ctx, '#bae6fd', -1, 8, 1, 1);
-    ctx.restore();
 
     ctx.restore();
   }
@@ -953,8 +960,6 @@ class CloudSpriteRenderer {
 
     // Channeling magical aura around blade and Materia
     ctx.save();
-    ctx.shadowBlur = 14;
-    ctx.shadowColor = elemColor;
     ctx.strokeStyle = elemColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -986,9 +991,6 @@ class CloudSpriteRenderer {
   drawLimitBreakStance(ctx, time, progress) {
     // Golden Limit Break Supercharged Aura
     ctx.save();
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = '#facc15';
-
     // Rising golden energy spikes around Cloud
     ctx.strokeStyle = 'rgba(250, 204, 21, 0.75)';
     ctx.lineWidth = 2.5;
@@ -2930,17 +2932,22 @@ class FieldWorld {
 
   // Draw Interaction Prompt when Player is nearby
   drawInteractPrompt(ctx, text, x, y) {
+    // Cache measureText results to avoid expensive measurement every frame
+    if (!this._promptWidthCache) this._promptWidthCache = {};
+    ctx.font = 'bold 9px Outfit, sans-serif';
+    if (this._promptWidthCache[text] === undefined) {
+      this._promptWidthCache[text] = ctx.measureText(text).width + 18;
+    }
+    const textW = this._promptWidthCache[text];
     ctx.save();
     ctx.translate(x, y - 55);
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    const textW = ctx.measureText(text).width + 18;
     ctx.fillRect(-textW / 2, -10, textW, 20);
     ctx.strokeStyle = '#facc15';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(-textW / 2, -10, textW, 20);
 
     ctx.fillStyle = '#fde047';
-    ctx.font = 'bold 9px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(text, 0, 4);
     ctx.restore();
@@ -3327,9 +3334,10 @@ class TorchBrazierRenderer {
     ctx.restore();
   }
 
-  // Draw Rising Ember Sparks
+  // Draw Rising Ember Sparks (batched for peak 60 FPS)
   drawEmbers(ctx, torchId) {
     const particles = this.getParticles(torchId);
+    ctx.save();
     particles.forEach(p => {
       p.life += 1;
       p.x += p.vx + Math.sin(p.life * 0.15 + p.seed) * 0.45;
@@ -3347,16 +3355,13 @@ class TorchBrazierRenderer {
       if (progress > 0.65) col = '#dc2626';
       else if (progress > 0.3) col = '#f97316';
 
-      ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha * 0.9));
       ctx.fillStyle = col;
-      ctx.shadowColor = '#f97316';
-      ctx.shadowBlur = 4;
       ctx.beginPath();
       ctx.arc(p.x, p.y - 20, curSize, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
     });
+    ctx.restore();
   }
 
   // Draw Arcane Ritual Magic Circle etched into ground
@@ -3537,8 +3542,6 @@ class DungeonAssetsManager {
       ctx.beginPath();
       ctx.ellipse(x, y + 10, w * 0.35, 14, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowColor = 'rgba(192, 132, 252, 0.4)';
-      ctx.shadowBlur = 12;
       ctx.drawImage(img, x - w / 2, y - h + 10, w, h);
       ctx.restore();
     }
@@ -3623,8 +3626,9 @@ class DungeonAssetsManager {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 9px Outfit, sans-serif';
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 4;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    ctx.strokeText(`${elemBadge} ${m.name}`, 0, -32);
     ctx.fillText(`${elemBadge} ${m.name}`, 0, -32);
     ctx.restore();
   }
@@ -4248,16 +4252,20 @@ class DungeonWorld {
   }
 
   drawInteractPrompt(ctx, text, x, y) {
+    if (!this._promptWidthCache) this._promptWidthCache = {};
+    ctx.font = 'bold 9px Outfit, sans-serif';
+    if (this._promptWidthCache[text] === undefined) {
+      this._promptWidthCache[text] = ctx.measureText(text).width + 18;
+    }
+    const textW = this._promptWidthCache[text];
     ctx.save();
     ctx.translate(x, y - 55);
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-    const textW = ctx.measureText(text).width + 18;
     ctx.fillRect(-textW / 2, -10, textW, 20);
     ctx.strokeStyle = '#facc15';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(-textW / 2, -10, textW, 20);
     ctx.fillStyle = '#fde047';
-    ctx.font = 'bold 9px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(text, 0, 4);
     ctx.restore();
@@ -6789,8 +6797,6 @@ class BattleEngine {
         // Highlight ring around selected enemy
         if (idx === this.selectedEnemyIdx) {
           const time = Date.now();
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = '#f59e0b';
           ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
           ctx.beginPath();
           ctx.ellipse(enemyBaseX + idx * 40, ey + 24, 28 + Math.sin(time/150)*4, 12 + Math.sin(time/150)*2, 0, 0, Math.PI * 2);
@@ -7019,9 +7025,10 @@ if (soundToggle) {
   });
 }
 
+let _cachedLogEl = null;
 function setCombatLog(msg) {
-  const el = document.getElementById('log-text');
-  if (el) el.innerHTML = msg;
+  if (!_cachedLogEl) _cachedLogEl = document.getElementById('log-text');
+  if (_cachedLogEl) _cachedLogEl.innerHTML = msg;
 }
 
 // Render dynamic abilities submenu for active party character
@@ -8624,6 +8631,17 @@ if (btnHudSlash) {
   });
 }
 
+// ================= Cached Telemetry DOM References (queried once, not every frame) =================
+const _cachedTele = {
+  dir: document.getElementById('tele-dir'),
+  state: document.getElementById('tele-state'),
+  speed: document.getElementById('tele-speed'),
+  weapon: document.getElementById('tele-weapon'),
+  gil: document.getElementById('tele-gil'),
+  level: document.getElementById('tele-level')
+};
+let _telemetryFrame = 0;
+
 // ================= Field Player Movement Logic =================
 function updatePlayerExploration() {
   // Update Attack State & Progress
@@ -8765,24 +8783,34 @@ function updatePlayerExploration() {
     }
   });
 
-  // Telemetry updates
-  const dirNames = { 'down': 'SOUTH (↓)', 'up': 'NORTH (↑)', 'left': 'WEST (←)', 'right': 'EAST (→)' };
-  const teleDir = document.getElementById('tele-dir');
-  if (teleDir) teleDir.textContent = dirNames[playerDir] || 'SOUTH (↓)';
-  const teleState = document.getElementById('tele-state');
-  if (teleState) teleState.textContent = playerState.toUpperCase();
-  const teleSpeed = document.getElementById('tele-speed');
-  if (teleSpeed) teleSpeed.textContent = `${Math.round(Math.hypot(playerVx, playerVy) * 60)} px/s`;
-  const teleWeapon = document.getElementById('tele-weapon');
-  if (teleWeapon && window.equippedWeapon) teleWeapon.textContent = `🗡️ ${window.equippedWeapon.name}`;
-  const teleGil = document.getElementById('tele-gil');
-  if (teleGil) teleGil.textContent = `${window.playerGil || 500} 🪙`;
-  const teleLevel = document.getElementById('tele-level');
-  if (teleLevel && battleEngine.party[0]) teleLevel.textContent = battleEngine.party[0].level;
+  // Telemetry updates — throttled to every 6 frames (avoid DOM access 60x/sec)
+  _telemetryFrame = (_telemetryFrame || 0) + 1;
+  if (_telemetryFrame >= 12) { // Throttled: update DOM every 12 frames (~5Hz) to reduce layout cost
+    _telemetryFrame = 0;
+    const dirNames = { 'down': 'SOUTH (↓)', 'up': 'NORTH (↑)', 'left': 'WEST (←)', 'right': 'EAST (→)' };
+    if (_cachedTele.dir) _cachedTele.dir.textContent = dirNames[playerDir] || 'SOUTH (↓)';
+    if (_cachedTele.state) _cachedTele.state.textContent = playerState.toUpperCase();
+    if (_cachedTele.speed) _cachedTele.speed.textContent = `${Math.round(Math.hypot(playerVx, playerVy) * 60)} px/s`;
+    if (_cachedTele.weapon && window.equippedWeapon) _cachedTele.weapon.textContent = `🗡️ ${window.equippedWeapon.name}`;
+    if (_cachedTele.gil) _cachedTele.gil.textContent = `${window.playerGil || 500} 🪙`;
+    if (_cachedTele.level && battleEngine.party[0]) _cachedTele.level.textContent = battleEngine.party[0].level;
+  }
 }
 
-// ================= Unified Game Loop =================
+// ================= Unified Game Loop (Perf-Optimized) =================
+// FPS cap: 60fps target — prevents CPU/GPU spin on high-refresh displays
+let _loopLastTime = 0;
+const _LOOP_FRAME_MIN = 1000 / 61; // ~16.4ms
+
 function gameLoop(time) {
+  // Hard 60fps cap
+  const _delta = time - _loopLastTime;
+  if (_delta < _LOOP_FRAME_MIN - 0.5) {
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+  _loopLastTime = time - (_delta % _LOOP_FRAME_MIN);
+
   if (currentMode === 'exploration') {
     updatePlayerExploration();
     combatVfx.update();
@@ -8807,6 +8835,7 @@ function gameLoop(time) {
     }
 
     ctx.save();
+    ctx.shadowBlur = 0;
     ctx.translate(camX, camY);
 
     curWorld.draw(ctx, time, playerX, playerY, cloudFieldRenderer, animFrame, playerState, playerDir);
@@ -8814,13 +8843,14 @@ function gameLoop(time) {
     combatVfx.draw(ctx);
     ctx.restore();
 
-    // Atmospheric Dynamic Lighting & Shadow Pass for Dungeon
+    // Dungeon lighting — only when in dungeon mode
     if (curWorld.terrainType === 'dungeon') {
       dungeonLightingEngine.renderLighting(ctx, time, curWorld, playerX, playerY, camX, camY);
     }
   } else {
     // Battle Mode
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.shadowBlur = 0;
     combatVfx.update();
     battleEngine.drawArena(ctx);
     combatVfx.draw(ctx);
@@ -8829,6 +8859,8 @@ function gameLoop(time) {
   requestAnimationFrame(gameLoop);
 }
 
+// Expose globally so perf_bgm_patch.js can override if needed
+window.gameLoop = gameLoop;
 requestAnimationFrame(gameLoop);
 
 // Bulletproof Shop Opener & Controller

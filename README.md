@@ -1,54 +1,127 @@
-# Three.js 3D Interactive Project 🚀
+# First Fantasy 67: Labyrinth of Awakening 🗡️⚡🛡️
 
-โปรเจกต์นี้ได้รับการติดตั้งและตั้งค่า **Three.js** เรียบร้อยแล้ว พร้อมใช้งานได้ 2 รูปแบบ:
-
----
-
-## วิธีที่ 1: เปิดใช้งานได้ทันที (ไม่ต้องติดตั้งโปรแกรมเพิ่ม)
-คุณสามารถเปิดดูผลงาน 3D ได้ทันทีผ่าน Browser:
-1. ไปที่โฟลเดอร์นี้ (`c:\Users\kitti\Downloads\New folder`)
-2. ดับเบิ้ลคลิกไฟล์ [index.html](file:///c:/Users/kitti/Downloads/New%20folder/index.html) เพื่อเปิดใน Google Chrome, Microsoft Edge หรือเว็บเบราว์เซอร์ใดก็ได้
-3. ใช้งานระบบ 3D Interactive:
-   - **คลิกซ้าย + ลาก**: หมุนมุมกล้อง (OrbitControls)
-   - **Scroll Mouse**: ซูมเข้า - ออก
-   - **คลิกขวา + ลาก**: เลื่อนตำแหน่งกล้อง (Pan)
-   - **แผงควบคุมด้านขวา**: เปลี่ยนรูปทรง (Torus Knot, Sphere, Icosahedron), เปลี่ยนวัสดุ (Hologram, Chrome, Glow, Wireframe), สลับสีไฟนีออน และปรับความเร็วการหมุน
+**Tactical Turn-Based RPG + 10-Floor Roguelite Dungeon Crawler**
+*เกม RPG เชิงยุทธวิธีผสานระบบดันเจี้ยน Roguelite 10 ชั้น — เล่นได้ทันทีในเบราว์เซอร์*
 
 ---
 
-## วิธีที่ 2: ติดตั้งผ่าน Node.js และ npm (`npm install three`)
-หากคุณต้องการพัฒนาโปรเจกต์ด้วยเครื่องมือสมัยใหม่ เช่น Vite, Webpack หรือ React:
+## 🎮 About the Game / เกี่ยวกับเกม
 
-1. **ติดตั้ง Node.js**:
-   - ในโฟลเดอร์ Downloads มีไฟล์ติดตั้ง `node-v24.21.0-x64.msi` อยู่แล้ว
-   - สามารถดับเบิ้ลคลิกติดตั้งได้ที่ [node-v24.21.0-x64.msi](file:///c:/Users/kitti/Downloads/node-v24.21.0-x64.msi) แล้วกด Next จนเสร็จสิ้น
-2. **ติดตั้ง Three.js ใน Terminal**:
-   ```bash
-   npm install three
-   ```
-3. **ตัวอย่างการ Import ใน ES Modules / Vite**:
-   ```javascript
-   import * as THREE from 'three';
-   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+**First Fantasy 67: Labyrinth of Awakening** is a browser-based tactical RPG inspired by classic JRPGs. Descend into a 10-floor dungeon, build your party, master elemental combat, and conquer the labyrinth — all playable directly in your browser with no installation required.
 
-   const scene = new THREE.Scene();
-   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-   const renderer = new THREE.WebGLRenderer();
-   renderer.setSize(window.innerWidth, window.innerHeight);
-   document.body.appendChild(renderer.domElement);
-   ```
+**First Fantasy 67** เป็นเกม RPG เชิงยุทธวิธีที่ได้รับแรงบันดาลใจจาก JRPG คลาสสิก สำรวจดันเจี้ยน 10 ชั้น สร้างทีม เชี่ยวชาญระบบธาตุ และพิชิต Labyrinth แห่งการตื่นรู้ — เล่นได้เลยในเบราว์เซอร์ ไม่ต้องติดตั้ง!
 
 ---
 
-## โครงสร้างไฟล์ในโปรเจกต์ (Project Structure)
+## ✨ Features / ฟีเจอร์หลัก
+
+### ⚔️ Tactical Combat System
+- **CT Timeline** turn-order system — know exactly when your turn arrives
+- **Elemental Weakness Chart**: Fire → Earth → Thunder → Water → Fire (2× damage chain)
+- **Limit Break** system — unleash devastating ultimate abilities at 100% gauge
+- **DEFEND mechanic** with 55% damage reduction + 50% Parry chance
+
+### 🏰 Dungeon Exploration (Isometric 2.5D)
+- 10-floor procedural dungeon with unique room events per floor
+- **Floor 5 & 10** are Safe Points — rest, shop, and choose Roguelite rewards
+- Real-time movement with WASD, chests, NPCs, and hidden secrets
+- **Minimap / Radar** system for navigation
+
+### 👥 Job System (Class System)
+- Multiple jobs: **Soldier, Black Mage, White Mage, Dragoon, Thief** and more
+- Each job has unique ability trees and stat growth
+- **JP (Job Points)** system to unlock new skills within each class
+
+### 🎒 Inventory & Equipment
+- Full item management: Potions, Ethers, Elixirs
+- Equipment slots with stat bonuses
+- Shop system at Safe Point floors
+
+### 🌍 World Map & Progression
+- Overworld exploration between dungeon sessions
+- Quest system with rewards
+- Party management with up to 4 active members
+
+---
+
+## 🎮 How to Play / วิธีเล่น
+
+| Key | Action |
+|-----|--------|
+| **WASD** | Move character |
+| **SHIFT** | Sprint / Run |
+| **SPACE** | Interact / Open chest / Talk to NPC |
+| **ESC / M** | Open Main Menu |
+| **[+]** | Allocate Stat Points |
+
+**In Battle:**
+- Select **ATTACK**, **ABILITIES/SKILLS**, **DEFEND**, **LIMIT BREAK**, or **ITEMS**
+- Watch the **CT Timeline** to predict turn order
+- Exploit elemental weaknesses for **2× damage**
+
+---
+
+## 🗡️ Characters / ตัวละคร
+
+- **Cloud Strife** — Balanced Soldier with high ATK and BRAVERY stats
+- More party members unlock as you descend deeper into the labyrinth
+
+---
+
+## 📸 Screenshots / ภาพหน้าจอ
+
+> Explore, fight, and conquer across multiple systems:
+
+- **Title Screen** — Dungeon atmosphere with menu navigation
+- **Isometric Exploration** — Navigate rooms, find chests, encounter enemies
+- **Turn-Based Battle** — Strategic combat with CT Timeline and elemental system
+- **Main Menu & Stats** — Full party management, job system, equipment
+- **World Map** — Overworld travel between key locations
+- **Shop & Items** — Manage your inventory at Safe Points
+- **Victory Screen** — EXP, Gil, and item rewards after battle
+
+---
+
+## 🛠️ Technical Info / ข้อมูลเทคนิค
+
+- **Engine**: Pure HTML5 + JavaScript (Vanilla JS, no game engine)
+- **Graphics**: Pixel art assets + custom isometric rendering
+- **Platform**: Browser (Chrome, Edge, Firefox — any modern browser)
+- **Save System**: LocalStorage browser save
+- **No installation required** — runs 100% in-browser
+
+---
+
+## 🎯 Roguelite Elements / ระบบ Roguelite
+
+Every run through the **10-floor labyrinth** offers:
+- **3 Roguelite reward choices** at Safe Points (Floor 5 & 10)
+- Permanent upgrades that carry through the run
+- Scaling enemy difficulty per floor
+- Boss encounters at key depths
+
+---
+
+## 👨‍💻 Developer / นักพัฒนา
+
+Made with ❤️ as a passion project — a love letter to classic Final Fantasy games, rebuilt from the ground up in the browser.
+
+**Stack**: HTML5 · CSS3 · Vanilla JavaScript · Three.js (isometric renderer)
+
+---
+
+## 📋 Controls Reference / ตารางควบคุม
+
 ```
-📁 New folder/
-├── 📄 index.html          # หน้าหลักแสดงผล 3D Scene และ HUD Controls
-├── 📄 style.css           # สไตล์ Cyberpunk / Glassmorphism
-├── 📄 main.js             # Logic การสร้าง Scene, Mesh, Light, Animation
-├── 📁 lib/
-│   ├── 📄 three.min.js    # Three.js Core library (Offline & Standalone)
-│   └── 📄 OrbitControls.js# ระบบควบคุมมุมมองกล้องด้วยเมาส์
-├── 📄 package.json        # กำหนดค่าสำหรับโปรเจกต์ Node.js / npm
-└── 📄 node-v24.21.0-x64.msi# ตัวติดตั้ง Node.js สำหรับ Windows
+Movement:    WASD
+Sprint:      SHIFT
+Interact:    SPACE
+Menu:        ESC or M
+Stat Points: [+] button in menu
 ```
+
+---
+
+*⚔️ Enter the Labyrinth. Awaken your power. Conquer all 10 floors.*
+*เข้าสู่ Labyrinth ปลุกพลังของคุณ พิชิตทั้ง 10 ชั้น*
+

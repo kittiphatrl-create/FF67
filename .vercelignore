@@ -1,0 +1,16 @@
+node_modules
+*.png
+!assets/**/*.png
+!portraits/**/*.png
+!Free Pixel Effects Pack/**/*.png
+!Harvest Sumer Free Ver. Pack/**/*.png
+!isometric-nature-pack/**/*.png
+!oubliette_chests_twg/**/*.png
+!Icons/**/*.png
+!brackeys_vfx_bundle/**/*.png
+!rpgiab_icon_pack_v1.3/**/*.png
+!ของ/**/*.png
+*.aseprite
+update.py
+take_game_over_screenshot.js
+generate_tree_data.js
